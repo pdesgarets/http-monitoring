@@ -10,7 +10,12 @@ var triggered = false;
 var threshold = 50;
 
 tail.on('line', function (data) {
-        var section = /"\w+\s\/(\w*).*"/.exec(data)[1];
+        var matched = /"\w+\s\/([\w$_.-]*).*"/.exec(data);
+        if (matched == null) {
+                // For instance : OPTIONS * will not match.
+                return;
+        }
+        section = matched[1];
         if (!section) {
                 // We replace root with a forbidden character in URL
                 section = "^";
