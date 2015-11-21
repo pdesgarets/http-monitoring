@@ -1,0 +1,28 @@
+{
+  "name": "http-monitoring",
+  "version": "0.0.1",
+  "description": "Simple HTTP log monitoring",
+  "main": "main.js",
+  "dependencies": {
+    "tail": "^0.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/pdesgarets/http-monitoring.git"
+  },
+  "keywords": [
+    "http",
+    "monitoring"
+  ],
+  "author": "Paul des Garets",
+  "license": "WTFPLv2",
+  "bugs": {
+    "url": "https://github.com/pdesgarets/http-monitoring/issues"
+  },
+  "homepage": "https://github.com/pdesgarets/http-monitoring"
+}
