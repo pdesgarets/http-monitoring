@@ -8,13 +8,18 @@ var topRanks = {};
 var sections = [];
 var nbReq = 0;
 var triggered = false;
-var threshold = 50;
+var threshold = 5; // Requests per second
+var launchTime;
+var beginning = true;
 
-if (process.env.NODE_ENV != 'test') {
+if (process.env.NODE_ENV != 'test' && !process.env.HTTP_LOG_FILE) {
   bootstrap('/tmp/test.log');
+} else if (process.env.HTTP_LOG_FILE) {
+  bootstrap(process.env.HTTP_LOG_FILE);
 }
 
 function bootstrap(file) {
+  launchTime = Date.now();
   tail = new Tail(file);
   tail.on('line', function (data) {
     var matched = /"\w+\s\/([\w$_.-]*).*"/.exec(data);
@@ -50,7 +55,14 @@ function bootstrap(file) {
   }, 10000);
 
   emitter.on('nbReqUpdated', function() {
-    if (nbReq > threshold && !triggered) {
+    var RPS;
+    if ( beginning && Date.now() - launchTime< 120000) {
+      RPS = 1000*nbReq/(Date.now() - launchTime);
+    } else {
+      beginning = false;
+      RPS = nbReq / 120;
+    }
+    if (RPS > threshold && !triggered) {
       triggered = true;
       console.log('oups ! it triggered with ', nbReq, ' at ', new Date());
     } else if (nbReq < threshold) {
@@ -62,4 +74,12 @@ function bootstrap(file) {
   });
 }
 
-module.exports = bootstrap;
+module.exports = {
+  bootstrap: bootstrap,
+  triggered: function() {
+    return triggered;
+  },
+  unwatch: function () {
+    tail.unwatch();
+  }
+};
