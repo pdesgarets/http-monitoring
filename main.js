@@ -1,16 +1,15 @@
 /*jslint node: true */
 'use strict';
 var Tail = require('tail').Tail;
-var events = require('events');
-var emitter = new events.EventEmitter();
 var tail;
 var topRanks = {};
 var sections = [];
-var nbReq = 0;
+var reqs = [];
 var triggered = false;
 var threshold = 5; // Requests per second
 var launchTime;
 var beginning = true;
+var interval;
 
 if (process.env.NODE_ENV != 'test' && !process.env.HTTP_LOG_FILE) {
   bootstrap('/tmp/test.log');
@@ -22,16 +21,12 @@ function bootstrap(file) {
   launchTime = Date.now();
   tail = new Tail(file);
   tail.on('line', function (data) {
-    var matched = /"\w+\s\/([\w$_.-]*).*"/.exec(data);
+    var matched = /"\w+\s(\/[\w$_.-]*).*"/.exec(data);
     if (matched === null) {
       // For instance : OPTIONS * will not match.
       return;
     }
     var section = matched[1];
-    if (!section) {
-      // We replace root with a forbidden character in URL
-      section = '^';
-    }
     if (Object.keys(topRanks).indexOf(section) > -1) {
       topRanks[section] = topRanks[section] +1;
     } else {
@@ -40,12 +35,9 @@ function bootstrap(file) {
     if (sections.indexOf(section) === -1) {
       sections.push(section);
     }
-    nbReq = nbReq + 1;
-    emitter.emit('nbReqUpdated');
-    setTimeout(function() {
-      emitter.emit('nbReqUpdated');
-      nbReq = nbReq -1;
-    }, 120000);
+    var dateMatched = /\[(.*):(\d+:\d+:\d+\s+\+\d+)\]/.exec(data);
+    reqs.push(Date.parse(dateMatched[1] + ' ' + dateMatched[2]));
+    check();
   });
 
   setInterval(function () {
@@ -54,24 +46,51 @@ function bootstrap(file) {
     }));
   }, 10000);
 
-  emitter.on('nbReqUpdated', function() {
-    var RPS;
-    if ( beginning && Date.now() - launchTime< 120000) {
-      RPS = 1000*nbReq/(Date.now() - launchTime);
-    } else {
-      beginning = false;
-      RPS = nbReq / 120;
+  setInterval(removeOutdated, 1000);
+}
+
+function removeOutdated(cb) {
+  console.log(reqs.length);
+  var i = 0;
+  var now = Date.now();
+  while (now - 120000 > reqs[i] && i < reqs.length -1) {
+    reqs.shift();
+    i++
+  }
+}
+
+function check() {
+  var RPS;
+  var nbReq = reqs.length;
+  if ( beginning && Date.now() - launchTime< 120000) {
+    RPS = 1000*nbReq/(Date.now() - launchTime);
+  } else {
+    beginning = false;
+    RPS = nbReq / 120;
+  }
+  console.log(RPS);
+  if (RPS > threshold && !triggered) {
+    trigger(RPS);
+  } else if (RPS < threshold) {
+    if (triggered) {
+      cancel(RPS);
     }
-    if (RPS > threshold && !triggered) {
-      triggered = true;
-      console.log('oups ! it triggered with ', nbReq, ' at ', new Date());
-    } else if (nbReq < threshold) {
-      if (triggered) {
-        triggered = false;
-        console.log('Yeah ! it recovered with ', nbReq, ' at ', new Date());
-      }
-    }
-  });
+  }
+}
+
+function trigger (RPS) {
+  triggered = true;
+  console.log('oups ! it triggered with ', RPS, ' at ', new Date());
+  interval = setInterval (function () {
+    removeOutdated();
+    check();
+  }, 1000);
+}
+
+function cancel (RPS) {
+  triggered = false;
+  console.log('Yeah ! it recovered with ', RPS, ' at ', new Date());
+  clearInterval(interval);
 }
 
 module.exports = {
