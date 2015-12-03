@@ -50,7 +50,7 @@ describe('Trigger alert', function () {
       cancelSpy.should.have.been.called;
       app.unwatch();
       done();
-    }, 2000);
+    }, 7000);
   });
 
   after(function (done) {

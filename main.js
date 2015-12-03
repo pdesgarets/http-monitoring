@@ -83,7 +83,6 @@ function check() {
     beginning = false;
     RPS = nbReq / 120;
   }
-  console.log(RPS);
   if (RPS > threshold && !triggered) {
     trigger(RPS);
   } else if (RPS < threshold) {
