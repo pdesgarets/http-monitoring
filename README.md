@@ -7,8 +7,6 @@ To test it, download, `npm install` then `npm start` (of course you'll need node
 
 TODO :
 
-- decide which stats could be interesting
+- decide which stats could be interesting : top 100 IP, max response time, number of 5** requests. 
 - fetch and display those stats
-- tests
-- maybe start again from scratch, depending on the perfs and the correctness.
 
