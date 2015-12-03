@@ -20,28 +20,29 @@ if (process.env.NODE_ENV != 'test' && !process.env.HTTP_LOG_FILE) {
 function bootstrap(file) {
   launchTime = Date.now();
   tail = new Tail(file);
+
   tail.on('line', function (data) {
     var matched = /"\w+\s(\/[\w$_.-]*).*"/.exec(data);
-    if (matched === null) {
+    var dateMatched = /\[(.*):(\d+:\d+:\d+\s+\+\d+)\]/.exec(data);
+    if (matched === null || dateMatched === null) {
       // For instance : OPTIONS * will not match.
       return;
     }
     var section = matched[1];
     if (Object.keys(topRanks).indexOf(section) > -1) {
-      topRanks[section] = topRanks[section] +1;
+      topRanks[section] = topRanks[section] + 1;
     } else {
       topRanks[section] = 1;
     }
     if (sections.indexOf(section) === -1) {
       sections.push(section);
     }
-    var dateMatched = /\[(.*):(\d+:\d+:\d+\s+\+\d+)\]/.exec(data);
     reqs.push(Date.parse(dateMatched[1] + ' ' + dateMatched[2]));
     check();
   });
 
   setInterval(function () {
-    console.log(new Date(), sections.sort(function(a,b) {
+    console.log(new Date(), sections.sort(function (a, b) {
       return topRanks[b] - topRanks[a];
     }));
   }, 10000);
@@ -49,11 +50,10 @@ function bootstrap(file) {
   setInterval(removeOutdated, 1000);
 }
 
-function removeOutdated(cb) {
-  console.log(reqs.length);
+function removeOutdated() {
   var i = 0;
   var now = Date.now();
-  while (now - 120000 > reqs[i] && i < reqs.length -1) {
+  while (now - 120000 > reqs[i] && i < reqs.length - 1) {
     reqs.shift();
     i++
   }
@@ -62,42 +62,38 @@ function removeOutdated(cb) {
 function check() {
   var RPS;
   var nbReq = reqs.length;
-  if ( beginning && Date.now() - launchTime< 120000) {
-    RPS = 1000*nbReq/(Date.now() - launchTime);
+  if (beginning && Date.now() - launchTime < 120000) {
+    RPS = 1000 * nbReq / (Date.now() - launchTime);
   } else {
     beginning = false;
     RPS = nbReq / 120;
   }
-  console.log(RPS);
   if (RPS > threshold && !triggered) {
     trigger(RPS);
   } else if (RPS < threshold) {
     if (triggered) {
-      cancel(RPS);
+      cancel();
     }
   }
 }
 
-function trigger (RPS) {
+function trigger(RPS) {
   triggered = true;
-  console.log('oups ! it triggered with ', RPS, ' at ', new Date());
-  interval = setInterval (function () {
+  console.log('High traffic generated an alert - hits = ', RPS,' triggered at', new Date());
+  interval = setInterval(function () {
     removeOutdated();
     check();
   }, 1000);
 }
 
-function cancel (RPS) {
+function cancel() {
   triggered = false;
-  console.log('Yeah ! it recovered with ', RPS, ' at ', new Date());
+  console.log('Yeah ! it recovered at ', new Date());
   clearInterval(interval);
 }
 
 module.exports = {
   bootstrap: bootstrap,
-  triggered: function() {
-    return triggered;
-  },
   unwatch: function () {
     tail.unwatch();
   }
