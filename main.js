@@ -2,14 +2,20 @@
 'use strict';
 var Tail = require('tail').Tail;
 var tail;
-var topRanks = {};
-var sections = [];
-var reqs = [];
 var triggered = false;
 var threshold = 5; // Requests per second
 var launchTime;
 var beginning = true;
-var interval;
+var interval, topRanks, sections, reqs, nbAuthenticatedRequests, nbTotalRequests;
+
+function reset() {
+  topRanks = {};
+  sections = [];
+  reqs = [];
+  nbAuthenticatedRequests = 0;
+  nbTotalRequests = 0;
+}
+
 
 if (process.env.NODE_ENV != 'test' && !process.env.HTTP_LOG_FILE) {
   bootstrap('/tmp/test.log');
@@ -18,12 +24,20 @@ if (process.env.NODE_ENV != 'test' && !process.env.HTTP_LOG_FILE) {
 }
 
 function bootstrap(file) {
+  reset();
   launchTime = Date.now();
   tail = new Tail(file);
 
   tail.on('line', function (data) {
+    var user =  /.+\s.+\s(.*)\s\[/.exec(data);
     var matched = /"\w+\s(\/[\w$_.-]*).*"/.exec(data);
     var dateMatched = /\[(.*):(\d+:\d+:\d+\s+\+\d+)\]/.exec(data);
+
+    if (user == '-') {
+      nbAuthenticatedRequests++;
+    }
+    nbTotalRequests++;
+
     if (matched === null || dateMatched === null) {
       // For instance : OPTIONS * will not match.
       return;
@@ -45,6 +59,7 @@ function bootstrap(file) {
     console.log(new Date(), sections.sort(function (a, b) {
       return topRanks[b] - topRanks[a];
     }));
+    console.log(nbAuthenticatedRequests *100 / nbTotalRequests, '% authenticated requests')
   }, 10000);
 
   setInterval(removeOutdated, 1000);
@@ -68,6 +83,7 @@ function check() {
     beginning = false;
     RPS = nbReq / 120;
   }
+  console.log(RPS);
   if (RPS > threshold && !triggered) {
     trigger(RPS);
   } else if (RPS < threshold) {
