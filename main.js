@@ -33,7 +33,7 @@ function bootstrap(file) {
     var matched = /"\w+\s(\/[\w$_.-]*).*"/.exec(data);
     var dateMatched = /\[(.*):(\d+:\d+:\d+\s+\+\d+)\]/.exec(data);
 
-    if (user == '-') {
+    if (user && user[1] !== '-') {
       nbAuthenticatedRequests++;
     }
     nbTotalRequests++;
